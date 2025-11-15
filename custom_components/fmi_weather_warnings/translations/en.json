@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "FMI Weather Warnings",
+        "description": "Set up Finnish Meteorological Institute weather warnings integration. You can optionally filter warnings by location.",
+        "data": {
+          "area": "Area (optional)"
+        },
+        "data_description": {
+          "area": "Enter a location name to filter warnings (e.g., 'Helsinki', 'Lapland'). Leave empty for all warnings."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to FMI service",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This area is already configured"
+    }
+  }
+}
