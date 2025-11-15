@@ -1,0 +1,147 @@
+# Example Home Assistant Configuration
+# This integration uses Config Flow, so you don't need to configure it in YAML
+# Just add it through the UI: Settings → Devices & Services → Add Integration
+
+# However, here are some example automations and dashboard cards:
+
+# =============================================================================
+# AUTOMATIONS
+# =============================================================================
+
+automation:
+  # Notify when any new warning appears
+  - alias: "Weather Warning - New Alert"
+    trigger:
+      - platform: state
+        entity_id: sensor.fmi_weather_warnings_active_warnings
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | int > trigger.from_state.state | int }}"
+    action:
+      - service: notify.notify
+        data:
+          title: "Weather Warning"
+          message: >
+            New weather warning issued!
+            Active warnings: {{ states('sensor.fmi_weather_warnings_active_warnings') }}
+
+  # Critical alert for severe/extreme warnings
+  - alias: "Weather Warning - Severe Alert"
+    trigger:
+      - platform: state
+        entity_id: sensor.fmi_weather_warnings_active_warnings
+    condition:
+      - condition: template
+        value_template: >
+          {% set warnings = state_attr('sensor.fmi_weather_warnings_active_warnings', 'warnings') %}
+          {{ warnings | selectattr('severity', 'in', ['Severe', 'Extreme']) | list | count > 0 }}
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          title: "🚨 SEVERE WEATHER WARNING"
+          message: >
+            {% set warnings = state_attr('sensor.fmi_weather_warnings_active_warnings', 'warnings') %}
+            {% set severe = warnings | selectattr('severity', 'in', ['Severe', 'Extreme']) | first %}
+            {{ severe.headline }}
+            
+            Area: {{ severe.area }}
+            Valid until: {{ severe.expires }}
+          data:
+            push:
+              sound:
+                name: "default"
+                critical: 1
+                volume: 1.0
+
+  # Turn on lights when warning appears (example)
+  - alias: "Weather Warning - Visual Alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.fmi_weather_warnings_active_warnings
+        above: 0
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.warning_light
+        data:
+          rgb_color: [255, 165, 0]  # Orange
+          brightness: 255
+
+  # Turn off lights when all warnings clear
+  - alias: "Weather Warning - Clear Alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.fmi_weather_warnings_active_warnings
+        below: 1
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: light.warning_light
+
+# =============================================================================
+# SENSORS (Template sensors for easier access)
+# =============================================================================
+
+template:
+  - sensor:
+      # Highest severity level among active warnings
+      - name: "FMI Warning Max Severity"
+        unique_id: fmi_warning_max_severity
+        state: >
+          {% set warnings = state_attr('sensor.fmi_weather_warnings_active_warnings', 'warnings') %}
+          {% if warnings | length > 0 %}
+            {% set severities = warnings | map(attribute='severity') | list %}
+            {% if 'Extreme' in severities %}Extreme
+            {% elif 'Severe' in severities %}Severe
+            {% elif 'Moderate' in severities %}Moderate
+            {% elif 'Minor' in severities %}Minor
+            {% else %}Unknown
+            {% endif %}
+          {% else %}None
+          {% endif %}
+        icon: >
+          {% set severity = this.state %}
+          {% if severity == 'Extreme' %}mdi:alert-octagon
+          {% elif severity == 'Severe' %}mdi:alert
+          {% elif severity == 'Moderate' %}mdi:alert-circle
+          {% elif severity == 'Minor' %}mdi:alert-circle-outline
+          {% else %}mdi:check-circle
+          {% endif %}
+
+      # Latest warning headline
+      - name: "FMI Latest Warning Headline"
+        unique_id: fmi_latest_warning_headline
+        state: >
+          {% set warnings = state_attr('sensor.fmi_weather_warnings_active_warnings', 'warnings') %}
+          {% if warnings | length > 0 %}
+            {{ warnings[0].headline | default(warnings[0].title) }}
+          {% else %}
+            No active warnings
+          {% endif %}
+
+# =============================================================================
+# BINARY SENSORS
+# =============================================================================
+
+  - binary_sensor:
+      # Binary sensor for "any warnings active"
+      - name: "Weather Warnings Active"
+        unique_id: weather_warnings_active
+        state: >
+          {{ states('sensor.fmi_weather_warnings_active_warnings') | int > 0 }}
+        device_class: safety
+        icon: >
+          {% if is_state('binary_sensor.weather_warnings_active', 'on') %}
+            mdi:alert
+          {% else %}
+            mdi:check-circle
+          {% endif %}
+
+      # Binary sensor for severe warnings
+      - name: "Severe Weather Warning Active"
+        unique_id: severe_weather_warning_active
+        state: >
+          {% set warnings = state_attr('sensor.fmi_weather_warnings_active_warnings', 'warnings') %}
+          {{ warnings | selectattr('severity', 'in', ['Severe', 'Extreme']) | list | count > 0 }}
+        device_class: safety
+        icon: mdi:alert-octagon
