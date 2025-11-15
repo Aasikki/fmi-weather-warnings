@@ -49,6 +49,6 @@ class FMIWeatherWarningsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=data_schema,
             errors=errors,
             description_placeholders={
-                "area_help": "Optional: Enter a location name to filter warnings (e.g., 'Helsinki', 'Lapland'). Leave empty for all warnings."
+                "area_help": "Optional: Enter a location name to filter warnings (e.g., 'Helsinki', 'Uusimaa', 'Lapland', 'Turku'). The system will match variations of the name. Leave empty for all warnings in Finland."
             },
         )
